@@ -1,314 +1,158 @@
 
-import { useState } from "react";
 import { Layout, PageHeader, PageContent } from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/common/Card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Search, Download, ArrowLeftRight, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/common/Card";
+import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
-// Mock data
-const mockLocations = [
-  { id: "all", name: "All Locations" },
-  { id: "warehouse", name: "Main Warehouse" },
-  { id: "store-1", name: "Store Alpha" },
-  { id: "store-2", name: "Store Beta" },
-  { id: "store-3", name: "Store Gamma" },
+// Simulated inventory data
+const mockInventoryData = [
+  { id: 1, name: "T-Shirt Basic", sku: "TS-001", inStock: 120, location: "Warehouse" },
+  { id: 2, name: "Denim Jeans", sku: "DJ-002", inStock: 75, location: "Warehouse" },
+  { id: 3, name: "Hoodie Black", sku: "HB-003", inStock: 50, location: "Store 1" },
+  { id: 4, name: "Summer Dress", sku: "SD-004", inStock: 35, location: "Store 2" },
+  { id: 5, name: "Leather Jacket", sku: "LJ-005", inStock: 15, location: "Warehouse" },
+  { id: 6, name: "Running Shoes", sku: "RS-006", inStock: 60, location: "Store 1" },
+  { id: 7, name: "Winter Coat", sku: "WC-007", inStock: 40, location: "Store 3" },
+  { id: 8, name: "Silk Scarf", sku: "SS-008", inStock: 90, location: "Warehouse" },
+  { id: 9, name: "Cotton Socks", sku: "CS-009", inStock: 200, location: "Warehouse" },
+  { id: 10, name: "Designer Bag", sku: "DB-010", inStock: 10, location: "Store 2" },
 ];
 
-const mockStockItems = [
-  { 
-    id: "1",
-    product: "Premium T-Shirt",
-    sku: "TS-PRE-M",
-    warehouse: 120,
-    "store-1": 12,
-    "store-2": 8,
-    "store-3": 2,
-    lowStock: false,
-    totalValue: 1800.00,
-  },
-  { 
-    id: "2",
-    product: "Standard Hoodie",
-    sku: "HD-STD-L",
-    warehouse: 60,
-    "store-1": 10,
-    "store-2": 15,
-    "store-3": 2,
-    lowStock: false,
-    totalValue: 2225.00,
-  },
-  { 
-    id: "3",
-    product: "Designer Jacket",
-    sku: "JK-DSG-S",
-    warehouse: 10,
-    "store-1": 8,
-    "store-2": 3,
-    "store-3": 2,
-    lowStock: true,
-    totalValue: 3055.00,
-  },
-  { 
-    id: "4",
-    product: "Casual Pants",
-    sku: "PT-CSL-M",
-    warehouse: 35,
-    "store-1": 8,
-    "store-2": 10,
-    "store-3": 3,
-    lowStock: false,
-    totalValue: 2250.00,
-  },
-  { 
-    id: "5",
-    product: "Athletic Socks",
-    sku: "SK-ATH-U",
-    warehouse: 180,
-    "store-1": 12,
-    "store-2": 14,
-    "store-3": 4,
-    lowStock: false,
-    totalValue: 2100.00,
-  },
-];
-
-const getLocationTotal = (location: string): number => {
-  return mockStockItems.reduce((total, item) => {
-    if (location === "all") {
-      return total + item.warehouse + item["store-1"] + item["store-2"] + item["store-3"];
-    }
-    return total + item[location as keyof typeof item] as number;
-  }, 0);
+// Mock function to fetch inventory data
+const fetchInventoryData = async () => {
+  // Simulate API request delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  return mockInventoryData;
 };
 
-const getStockValue = (location: string): number => {
-  if (location === "all") {
-    return mockStockItems.reduce((total, item) => total + item.totalValue, 0);
-  }
+// Inventory summary for chart
+const getInventorySummaryByLocation = (data: typeof mockInventoryData) => {
+  const summary = data.reduce((acc, item) => {
+    if (!acc[item.location]) {
+      acc[item.location] = { location: item.location, count: 0, totalItems: 0 };
+    }
+    acc[item.location].count += 1; // Count unique products
+    acc[item.location].totalItems += item.inStock; // Count total inventory items
+    return acc;
+  }, {} as Record<string, { location: string; count: number; totalItems: number }>);
   
-  // This is simplified - in a real app, you'd have the value per location
-  return mockStockItems.reduce((total, item) => total + (item.totalValue / 2), 0);
+  return Object.values(summary);
 };
 
 const Inventory = () => {
-  const [selectedLocation, setSelectedLocation] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
   
-  // Filter items based on search
-  const filteredItems = mockStockItems.filter((item) => {
-    return item.product.toLowerCase().includes(searchTerm.toLowerCase()) || 
-           item.sku.toLowerCase().includes(searchTerm.toLowerCase());
+  // Use React Query to fetch inventory data
+  const { data: inventoryData, isLoading, error } = useQuery({
+    queryKey: ['inventory'],
+    queryFn: fetchInventoryData,
   });
+  
+  // If there's an error, show a toast notification
+  if (error) {
+    toast({
+      title: "Error",
+      description: "Failed to load inventory data. Please try again.",
+      variant: "destructive",
+    });
+  }
+  
+  // Prepare data for the chart if inventory data is loaded
+  const inventorySummary = inventoryData ? getInventorySummaryByLocation(inventoryData) : [];
   
   return (
     <Layout>
       <PageHeader 
-        title="Inventory"
-        description="View and manage stock across all locations"
-      >
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-1">
-            <Download className="h-4 w-4" />
-            <span>Export</span>
-          </Button>
-          <Button className="gap-1">
-            <ArrowLeftRight className="h-4 w-4" />
-            <span>Transfer Stock</span>
-          </Button>
-        </div>
-      </PageHeader>
+        title="Inventory" 
+        description="Monitor and manage your stock levels across all locations"
+      />
       
       <PageContent>
-        <div className="space-y-8 animate-fade-in">
-          {/* Stock Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total Stock Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {getLocationTotal(selectedLocation)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedLocation === "all" 
-                    ? "Across all locations" 
-                    : `In ${mockLocations.find(l => l.id === selectedLocation)?.name}`}
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Inventory Value
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  ${getStockValue(selectedLocation).toLocaleString()}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Based on product cost prices
-                </p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Low Stock Items
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-amber-500">
-                  {mockStockItems.filter(item => item.lowStock).length}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Items below minimum threshold
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Stock Table */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           <Card>
             <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <CardTitle>Stock Levels</CardTitle>
-                  <CardDescription>
-                    Current inventory across all locations
-                  </CardDescription>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative w-full sm:w-auto">
-                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="search"
-                      placeholder="Search..."
-                      className="pl-8 w-full sm:w-[200px]"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                  </div>
-                  
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Select location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockLocations.map(location => (
-                        <SelectItem key={location.id} value={location.id}>
-                          {location.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              <CardTitle>Total Products</CardTitle>
             </CardHeader>
-            
-            <CardContent>
-              <div className="border rounded-md overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>SKU</TableHead>
-                      {selectedLocation === "all" && (
-                        <>
-                          <TableHead className="text-right">Warehouse</TableHead>
-                          <TableHead className="text-right">Store Alpha</TableHead>
-                          <TableHead className="text-right">Store Beta</TableHead>
-                          <TableHead className="text-right">Store Gamma</TableHead>
-                        </>
-                      )}
-                      {selectedLocation !== "all" && (
-                        <TableHead className="text-right">Quantity</TableHead>
-                      )}
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead className="text-right">Value</TableHead>
-                      <TableHead className="text-right">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredItems.length === 0 ? (
-                      <TableRow>
-                        <TableCell 
-                          colSpan={selectedLocation === "all" ? 9 : 6} 
-                          className="h-24 text-center"
-                        >
-                          No stock items found.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredItems.map((item) => (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-medium">{item.product}</TableCell>
-                          <TableCell>{item.sku}</TableCell>
-                          
-                          {selectedLocation === "all" && (
-                            <>
-                              <TableCell className="text-right">{item.warehouse}</TableCell>
-                              <TableCell className="text-right">{item["store-1"]}</TableCell>
-                              <TableCell className="text-right">{item["store-2"]}</TableCell>
-                              <TableCell className="text-right">{item["store-3"]}</TableCell>
-                            </>
-                          )}
-                          
-                          {selectedLocation !== "all" && (
-                            <TableCell className="text-right">
-                              {item[selectedLocation as keyof typeof item] as number}
-                            </TableCell>
-                          )}
-                          
-                          <TableCell className="text-right font-medium">
-                            {selectedLocation === "all" 
-                              ? item.warehouse + item["store-1"] + item["store-2"] + item["store-3"] 
-                              : item[selectedLocation as keyof typeof item] as number}
-                          </TableCell>
-                          
-                          <TableCell className="text-right">
-                            ${item.totalValue.toLocaleString()}
-                          </TableCell>
-                          
-                          <TableCell className="text-right">
-                            {item.lowStock ? (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 flex items-center gap-1">
-                                <AlertCircle className="h-3 w-3" />
-                                <span>Low Stock</span>
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="bg-green-50 text-green-600 border-green-200">
-                                In Stock
-                              </Badge>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+            <CardContent className="flex items-center justify-center h-40">
+              {isLoading ? (
+                <Skeleton className="h-16 w-16 rounded-full" />
+              ) : (
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary">
+                    {inventoryData?.length || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">Unique SKUs</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>In Stock</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center h-40">
+              {isLoading ? (
+                <Skeleton className="h-16 w-16 rounded-full" />
+              ) : (
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary">
+                    {inventoryData?.reduce((sum, item) => sum + Number(item.inStock), 0) || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">Total units</div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader>
+              <CardTitle>Locations</CardTitle>
+            </CardHeader>
+            <CardContent className="flex items-center justify-center h-40">
+              {isLoading ? (
+                <Skeleton className="h-16 w-16 rounded-full" />
+              ) : (
+                <div className="text-center">
+                  <div className="text-4xl font-bold text-primary">
+                    {new Set(inventoryData?.map(item => item.location)).size || 0}
+                  </div>
+                  <div className="text-sm text-muted-foreground mt-2">Storage locations</div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
+        
+        <Card className="mt-6">
+          <CardHeader>
+            <CardTitle>Inventory by Location</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-80">
+              {isLoading ? (
+                <div className="flex flex-col space-y-3">
+                  <Skeleton className="h-[250px]" />
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={inventorySummary}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 30 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="location" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="totalItems" name="Total Items" fill="#3b82f6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </PageContent>
     </Layout>
   );
