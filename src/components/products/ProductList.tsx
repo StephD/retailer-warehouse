@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,69 +22,95 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock data for products
-const mockProducts = [
-  {
-    id: "1",
-    name: "Premium T-Shirt",
-    sku: "TS-PRE-M",
-    category: "Apparel",
-    price: 29.99,
-    cost: 12.50,
-    inStock: 142,
-    supplier: "Fashion Suppliers Inc.",
-    variants: ["S", "M", "L", "XL"],
-  },
-  {
-    id: "2",
-    name: "Standard Hoodie",
-    sku: "HD-STD-L",
-    category: "Apparel",
-    price: 49.99,
-    cost: 22.75,
-    inStock: 87,
-    supplier: "Fashion Suppliers Inc.",
-    variants: ["M", "L", "XL"],
-  },
-  {
-    id: "3",
-    name: "Designer Jacket",
-    sku: "JK-DSG-S",
-    category: "Outerwear",
-    price: 129.99,
-    cost: 65.30,
-    inStock: 23,
-    supplier: "Premium Clothiers Ltd.",
-    variants: ["S", "M", "L"],
-  },
-  {
-    id: "4",
-    name: "Casual Pants",
-    sku: "PT-CSL-M",
-    category: "Apparel",
-    price: 39.99,
-    cost: 18.25,
-    inStock: 56,
-    supplier: "Fashion Suppliers Inc.",
-    variants: ["S", "M", "L", "XL", "XXL"],
-  },
-  {
-    id: "5",
-    name: "Athletic Socks",
-    sku: "SK-ATH-U",
-    category: "Accessories",
-    price: 9.99,
-    cost: 3.75,
-    inStock: 210,
-    supplier: "Sports Gear Co.",
-    variants: ["One Size"],
-  },
-];
+type Product = {
+  id: string;
+  name: string;
+  sku: string;
+  category: string;
+  price: number;
+  cost: number;
+  supplier: string | null;
+  in_stock?: number;
+};
+
+// Function to fetch products from Supabase
+const fetchProducts = async (): Promise<Product[]> => {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*');
+  
+  if (error) {
+    console.error('Error fetching products:', error);
+    throw new Error('Failed to fetch products');
+  }
+  
+  // Fetch inventory totals for each product
+  const productsWithStock = await Promise.all(
+    data.map(async (product) => {
+      const { data: inventoryData, error: inventoryError } = await supabase
+        .from('inventory')
+        .select('quantity')
+        .eq('product_id', product.id);
+      
+      if (inventoryError) {
+        console.error('Error fetching inventory:', inventoryError);
+        return { ...product, in_stock: 0 };
+      }
+      
+      const totalStock = inventoryData.reduce((sum, item) => sum + item.quantity, 0);
+      return { ...product, in_stock: totalStock };
+    })
+  );
+  
+  return productsWithStock;
+};
+
+// Function to delete a product
+const deleteProduct = async (id: string) => {
+  const { error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id);
+  
+  if (error) {
+    console.error('Error deleting product:', error);
+    throw new Error('Failed to delete product');
+  }
+  
+  return id;
+};
 
 export function ProductList() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [products, setProducts] = useState(mockProducts);
+  const queryClient = useQueryClient();
+  
+  // Fetch products with React Query
+  const { data: products = [], isLoading, isError } = useQuery({
+    queryKey: ['products'],
+    queryFn: fetchProducts
+  });
+  
+  // Delete product mutation
+  const deleteProductMutation = useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success("Product deleted successfully");
+    },
+    onError: () => {
+      toast.error("Failed to delete product");
+    }
+  });
+  
+  // Handle product deletion
+  const handleDeleteProduct = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this product?")) {
+      deleteProductMutation.mutate(id);
+    }
+  };
   
   // Filter products based on search term
   const filteredProducts = products.filter(product => 
@@ -92,12 +118,6 @@ export function ProductList() {
     product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  
-  // Handle product deletion
-  const handleDeleteProduct = (id: string) => {
-    setProducts(products.filter(product => product.id !== id));
-    toast.success("Product deleted successfully");
-  };
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -140,7 +160,19 @@ export function ProductList() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.length === 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center">
+                  Loading products...
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-red-500">
+                  Error loading products. Please try again.
+                </TableCell>
+              </TableRow>
+            ) : filteredProducts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
                   No products found.
@@ -152,24 +184,26 @@ export function ProductList() {
                   <TableCell className="font-medium">
                     <div>
                       {product.name}
-                      <div className="text-xs text-muted-foreground mt-1">
-                        {product.supplier}
-                      </div>
+                      {product.supplier && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {product.supplier}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>{product.sku}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{product.category}</Badge>
                   </TableCell>
-                  <TableCell className="text-right">${product.price.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">${product.cost.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${Number(product.price).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">${Number(product.cost).toFixed(2)}</TableCell>
                   <TableCell className="text-right">
                     <span className={cn(
                       "font-medium",
-                      product.inStock < 30 ? "text-red-500" : 
-                      product.inStock < 50 ? "text-amber-500" : "text-green-500"
+                      product.in_stock < 30 ? "text-red-500" : 
+                      product.in_stock < 50 ? "text-amber-500" : "text-green-500"
                     )}>
-                      {product.inStock}
+                      {product.in_stock}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
