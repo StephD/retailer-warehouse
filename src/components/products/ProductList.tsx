@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Search, Filter, Plus, Edit, Trash2 } from "lucide-react";
+import { Search, Filter, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ProductForm } from "@/components/products/ProductForm";
 
 type Product = {
   id: string;
@@ -85,6 +86,7 @@ const deleteProduct = async (id: string) => {
 
 export function ProductList() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   
   // Fetch products with React Query
@@ -139,10 +141,6 @@ export function ProductList() {
             <span>Filter</span>
           </Button>
           
-          <Button size="sm" className="gap-1">
-            <Plus className="h-4 w-4" />
-            <span>Add Product</span>
-          </Button>
         </div>
       </div>
       
@@ -235,6 +233,18 @@ export function ProductList() {
           </TableBody>
         </Table>
       </div>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+            <DialogDescription>
+              Create a new product in your catalog.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ProductForm onSuccess={() => setIsDialogOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
