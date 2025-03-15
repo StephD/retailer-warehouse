@@ -55,7 +55,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
     mutationFn: async (values: ProductFormValues) => {
       const { data, error } = await supabase
         .from('products')
-        .insert([values])
+        .insert(values) // Fixed: Pass values directly, not as an array
         .select();
       
       if (error) {
