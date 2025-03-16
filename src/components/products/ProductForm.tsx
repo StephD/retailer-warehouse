@@ -53,9 +53,19 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
   // Create product mutation
   const createProductMutation = useMutation({
     mutationFn: async (values: ProductFormValues) => {
+      // Ensure all required fields are present - transform undefined values to empty strings
+      const productData = {
+        name: values.name,
+        sku: values.sku,
+        category: values.category,
+        price: values.price,
+        cost: values.cost,
+        supplier: values.supplier || null, // Convert empty string to null if needed
+      };
+      
       const { data, error } = await supabase
         .from('products')
-        .insert(values) // Fixed: Pass values directly, not as an array
+        .insert(productData)
         .select();
       
       if (error) {
