@@ -13,6 +13,7 @@ export interface Product {
   cost: number;
   supplier: string | null;
   in_stock?: number;
+  attributes?: Record<string, string>; // Add attributes
 }
 
 interface ProductRowProps {
@@ -21,6 +22,9 @@ interface ProductRowProps {
 }
 
 export function ProductRow({ product, onDeleteProduct }: ProductRowProps) {
+  // Get key attributes to display (limited to 2 for space)
+  const attributeEntries = product.attributes ? Object.entries(product.attributes).slice(0, 2) : [];
+
   return (
     <TableRow key={product.id} className="group">
       <TableCell className="font-medium">
@@ -29,6 +33,15 @@ export function ProductRow({ product, onDeleteProduct }: ProductRowProps) {
           {product.supplier && (
             <div className="text-xs text-muted-foreground mt-1">
               {product.supplier}
+            </div>
+          )}
+          {attributeEntries.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {attributeEntries.map(([key, value]) => (
+                <Badge key={key} variant="outline" className="text-xs">
+                  {key}: {value}
+                </Badge>
+              ))}
             </div>
           )}
         </div>

@@ -9,10 +9,12 @@ import { SearchBar } from "./SearchBar";
 import { FilterButton } from "./FilterButton";
 import { ProductsTable } from "./ProductsTable";
 import { Product } from "./ProductRow";
+import { Attribute } from "@/types/attributes";
 
 // Function to fetch products from Supabase
 const fetchProducts = async (): Promise<Product[]> => {
-  const { data, error } = await supabase
+  // Fetch all products
+  const { data: products, error } = await supabase
     .from('products')
     .select('*');
   
@@ -21,9 +23,28 @@ const fetchProducts = async (): Promise<Product[]> => {
     throw new Error('Failed to fetch products');
   }
   
+  // Fetch attributes for display
+  const { data: attributes, error: attributesError } = await supabase
+    .from('attributes')
+    .select('*');
+  
+  if (attributesError) {
+    console.error('Error fetching attributes:', attributesError);
+  }
+  
+  // Fetch product attribute values
+  const { data: attributeValues, error: valuesError } = await supabase
+    .from('product_attribute_values')
+    .select('*');
+    
+  if (valuesError) {
+    console.error('Error fetching attribute values:', valuesError);
+  }
+  
   // Fetch inventory totals for each product
-  const productsWithStock = await Promise.all(
-    data.map(async (product) => {
+  const productsWithDetails = await Promise.all(
+    products.map(async (product) => {
+      // Get inventory data
       const { data: inventoryData, error: inventoryError } = await supabase
         .from('inventory')
         .select('quantity')
@@ -35,11 +56,33 @@ const fetchProducts = async (): Promise<Product[]> => {
       }
       
       const totalStock = inventoryData.reduce((sum, item) => sum + item.quantity, 0);
-      return { ...product, in_stock: totalStock };
+      
+      // Process attribute values for this product
+      const productAttributeValues = attributeValues
+        ? attributeValues.filter(val => val.product_id === product.id)
+        : [];
+      
+      // Create attribute map
+      const attributesMap: Record<string, string> = {};
+      
+      if (attributes && productAttributeValues.length > 0) {
+        productAttributeValues.forEach(attrValue => {
+          const attribute = attributes.find(attr => attr.id === attrValue.attribute_id);
+          if (attribute) {
+            attributesMap[attribute.name] = attrValue.value;
+          }
+        });
+      }
+      
+      return { 
+        ...product, 
+        in_stock: totalStock,
+        attributes: attributesMap 
+      };
     })
   );
   
-  return productsWithStock;
+  return productsWithDetails;
 };
 
 // Function to delete a product
