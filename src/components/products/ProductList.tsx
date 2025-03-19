@@ -59,6 +59,7 @@ const deleteProduct = async (id: string) => {
 
 export function ProductList() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   
@@ -80,6 +81,9 @@ export function ProductList() {
     }
   });
   
+  // Extract unique categories from products
+  const uniqueCategories = [...new Set(products.map(p => p.category))].sort();
+  
   // Handle product deletion
   const handleDeleteProduct = (id: string) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
@@ -87,12 +91,35 @@ export function ProductList() {
     }
   };
   
-  // Filter products based on search term
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter toggle handler
+  const handleCategoryToggle = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
+        : [...prev, category]
+    );
+  };
+  
+  // Clear all filters
+  const handleClearFilters = () => {
+    setSelectedCategories([]);
+  };
+  
+  // Filter products based on search term and selected categories
+  const filteredProducts = products.filter(product => {
+    // Text search filter
+    const matchesSearch = 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Category filter
+    const matchesCategory = 
+      selectedCategories.length === 0 || 
+      selectedCategories.includes(product.category);
+    
+    return matchesSearch && matchesCategory;
+  });
   
   return (
     <div className="space-y-4 animate-fade-in">
@@ -100,7 +127,12 @@ export function ProductList() {
         <SearchBar searchTerm={searchTerm} onSearchChange={setSearchTerm} />
         
         <div className="flex items-center gap-2 w-full sm:w-auto">
-          <FilterButton />
+          <FilterButton 
+            categories={uniqueCategories}
+            selectedCategories={selectedCategories}
+            onCategoryToggle={handleCategoryToggle}
+            onClearFilters={handleClearFilters}
+          />
         </div>
       </div>
       
