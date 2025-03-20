@@ -33,7 +33,8 @@ export function AttributeField({ attribute, value, onChange, control }: Attribut
         return [];
       }
       
-      return data as AttributeOption[];
+      // Type assertion to ensure the correct type
+      return (data || []) as AttributeOption[];
     },
     enabled: attribute.type === 'select'
   });

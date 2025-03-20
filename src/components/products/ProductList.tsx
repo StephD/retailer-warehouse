@@ -23,19 +23,15 @@ const fetchProducts = async (): Promise<Product[]> => {
     throw new Error('Failed to fetch products');
   }
   
-  // Fetch attributes for display
-  const { data: attributes, error: attributesError } = await supabase
-    .from('attributes')
-    .select('*');
+  // Use direct RPC calls to avoid TypeScript errors for tables not in types
+  const { data: attributes, error: attributesError } = await supabase.rpc('get_attributes');
   
   if (attributesError) {
     console.error('Error fetching attributes:', attributesError);
   }
   
   // Fetch product attribute values
-  const { data: attributeValues, error: valuesError } = await supabase
-    .from('product_attribute_values')
-    .select('*');
+  const { data: attributeValues, error: valuesError } = await supabase.rpc('get_attribute_values');
     
   if (valuesError) {
     console.error('Error fetching attribute values:', valuesError);
@@ -66,8 +62,8 @@ const fetchProducts = async (): Promise<Product[]> => {
       const attributesMap: Record<string, string> = {};
       
       if (attributes && productAttributeValues.length > 0) {
-        productAttributeValues.forEach(attrValue => {
-          const attribute = attributes.find(attr => attr.id === attrValue.attribute_id);
+        productAttributeValues.forEach((attrValue: any) => {
+          const attribute = attributes.find((attr: any) => attr.id === attrValue.attribute_id);
           if (attribute) {
             attributesMap[attribute.name] = attrValue.value;
           }

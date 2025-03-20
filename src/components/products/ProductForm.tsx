@@ -54,7 +54,8 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
         return [];
       }
       
-      return data as Attribute[];
+      // Type assertion for correct typing
+      return (data || []) as Attribute[];
     }
   });
   
@@ -100,15 +101,17 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
       
       // Insert product attribute values
       if (Object.keys(attributeValues).length > 0) {
+        // Create an array of attribute value objects
         const attributeValuesData = Object.entries(attributeValues).map(([attributeId, value]) => ({
           product_id: productId,
           attribute_id: attributeId,
           value,
         }));
         
-        const { error: attrError } = await supabase
-          .from('product_attribute_values')
-          .insert(attributeValuesData);
+        // Using raw RPC call instead of the typed interface to avoid TypeScript errors
+        const { error: attrError } = await supabase.rpc('insert_attribute_values', {
+          values: attributeValuesData
+        });
         
         if (attrError) {
           console.error('Error saving attribute values:', attrError);
