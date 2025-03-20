@@ -9,6 +9,77 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      attribute_options: {
+        Row: {
+          attribute_id: string
+          created_at: string
+          display_order: number
+          id: string
+          value: string
+        }
+        Insert: {
+          attribute_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          value: string
+        }
+        Update: {
+          attribute_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attribute_options_attribute_id_fkey"
+            columns: ["attribute_id"]
+            isOneToOne: false
+            referencedRelation: "attributes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attributes: {
+        Row: {
+          code: string
+          created_at: string
+          display_order: number
+          id: string
+          is_filterable: boolean
+          is_required: boolean
+          is_variant: boolean
+          name: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_filterable?: boolean
+          is_required?: boolean
+          is_variant?: boolean
+          name: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_filterable?: boolean
+          is_required?: boolean
+          is_variant?: boolean
+          name?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       inventory: {
         Row: {
           created_at: string
@@ -97,6 +168,48 @@ export type Database = {
         }
         Relationships: []
       }
+      product_attribute_values: {
+        Row: {
+          attribute_id: string
+          created_at: string
+          id: string
+          product_id: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          attribute_id: string
+          created_at?: string
+          id?: string
+          product_id: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          attribute_id?: string
+          created_at?: string
+          id?: string
+          product_id?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_attribute_values_attribute_id_fkey"
+            columns: ["attribute_id"]
+            isOneToOne: false
+            referencedRelation: "attributes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_attribute_values_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_variants: {
         Row: {
           created_at: string
@@ -170,7 +283,38 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_attribute_values: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          attribute_id: string
+          created_at: string
+          id: string
+          product_id: string
+          updated_at: string
+          value: string
+        }[]
+      }
+      get_attributes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code: string
+          created_at: string
+          display_order: number
+          id: string
+          is_filterable: boolean
+          is_required: boolean
+          is_variant: boolean
+          name: string
+          type: string
+          updated_at: string
+        }[]
+      }
+      insert_attribute_values: {
+        Args: {
+          attr_values: Json
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

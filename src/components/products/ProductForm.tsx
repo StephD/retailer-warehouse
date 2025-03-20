@@ -44,10 +44,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
   const { data: attributes = [], isLoading: attributesLoading } = useQuery({
     queryKey: ['attributes'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('attributes')
-        .select('*')
-        .order('display_order', { ascending: true });
+      const { data, error } = await supabase.rpc('get_attributes');
       
       if (error) {
         console.error('Error fetching attributes:', error);
@@ -110,7 +107,7 @@ export function ProductForm({ onSuccess }: ProductFormProps) {
         
         // Using raw RPC call instead of the typed interface to avoid TypeScript errors
         const { error: attrError } = await supabase.rpc('insert_attribute_values', {
-          values: attributeValuesData
+          attr_values: attributeValuesData
         });
         
         if (attrError) {

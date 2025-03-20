@@ -55,7 +55,7 @@ const fetchProducts = async (): Promise<Product[]> => {
       
       // Process attribute values for this product
       const productAttributeValues = attributeValues
-        ? attributeValues.filter(val => val.product_id === product.id)
+        ? attributeValues.filter((val: any) => val.product_id === product.id)
         : [];
       
       // Create attribute map

@@ -22,11 +22,13 @@ export function AttributeField({ attribute, value, onChange, control }: Attribut
     queryFn: async () => {
       if (attribute.type !== 'select') return [];
       
+      // We need to use a direct query here since we don't have an RPC for this specific query
+      // This requires a type assertion since TypeScript doesn't know about this table
       const { data, error } = await supabase
         .from('attribute_options')
         .select('*')
         .eq('attribute_id', attribute.id)
-        .order('display_order', { ascending: true });
+        .order('display_order', { ascending: true }) as any;
       
       if (error) {
         console.error('Error fetching attribute options:', error);
